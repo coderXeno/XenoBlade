@@ -3,12 +3,17 @@ from discord import channel
 from discord.ext import commands,tasks
 from discord.ext.commands import Bot
 from discord.ext.commands.core import command
+from discord.ext.commands.errors import BadArgument
 from discord.gateway import DiscordClientWebSocketResponse
 from discord.guild import Guild
 from discord.utils import get
+from itertools import count
 
+import youtube_dl
 import json
+import random
 import re
+import time
 import os
 import collections
 import sys
@@ -51,6 +56,7 @@ async def help(ctx):
     helpEmbed=discord.Embed(title="Xenobot is here to help!",description="Use x!help <command> to see more info on a command",color=discord.Colour.green())
     helpEmbed.add_field(name="x!",value="x! is the prefix for Xenobot!!Run any command with x!<command> to get the command working..Have fun!!")
     helpEmbed.add_field(name="ping",value="Checks your ping")
+    helpEmbed.add_field(name="server",value="Shows a description of the server")
     helpEmbed.add_field(name="description",value="Displays info on Xeno")
     helpEmbed.add_field(name="avatar",value="Displays the specified user's avatar")
     helpEmbed.add_field(name="purge",value="Purges specified number of messages")
@@ -61,8 +67,24 @@ async def help(ctx):
     helpEmbed.add_field(name="roles",value="Puts up the roles message")
     helpEmbed.add_field(name="mute",value="Mutes the member for a specific reason")
     helpEmbed.add_field(name="unmute",value="Unmutes the member that was previously muted")
+    helpEmbed.add_field(name="rps",value="Plays rock paper scissors with the player that invokes the command")
+    helpEmbed.add_field(name="server",value="Plays rock paper scissors with the player that invokes the command")
     helpEmbed.set_footer(text="Built by Eth")
     await ctx.send(embed=helpEmbed)
+
+@help.command()
+async def server(ctx):
+    srverEmbed=discord.Embed(title="Server Details", description="A Detailed info of the server containing place values")
+    srverEmbed.add_field(name="**SYNTAX**",description="x!server")
+    await ctx.send(embed=srverEmbed)
+
+
+@help.command()
+async def rps(ctx):
+    rpsEmbed=discord.Embed(title="Rock Paper Scissors",description="Plays rock paper scissors with the player")
+    rpsEmbed.add_field(name="**SYNTAX**",value="x!rps")
+    rpsEmbed.add_field(name="This command has aliases x!rg and x!rs")
+    await ctx.send(embed=rpsEmbed)
 
 @help.command()
 async def ping(ctx):
@@ -187,7 +209,7 @@ async def purge(ctx,amount=35):
         await ctx.send("Whoa!! Chill out..delete only 500 at once")
     else:
         await ctx.channel.purge(limit=amount)
-        await ctx.send(f"Cleared {amount} messages")
+        await ctx.send(f"Cleared {amount} messages",delete_after=5)
 
 @bot.command()
 @commands.has_permissions(kick_members=True)
@@ -328,6 +350,190 @@ async def unmute(ctx, member: discord.Member):
     await ctx.send(f"Unmuted {member.mention}")
     await member.send(f"You were unmuted in the server {ctx.guild.name}")
     
+@bot.command(aliases=["rg","rs"])
+async def rps(ctx,message):
+    answer=message.lower()
+    choices=['rock','paper','scissors']
+    computers_answer=random.choice(choices)
 
+    if answer not in choices:
+        await ctx.send("That is not a valid option! Please use one of these options: rock,paper,scissors")
+    else:
+        if computers_answer==answer:
+            await ctx.send(f"Tie! We both picked {answer}")
+        if computers_answer=="rock":
+            if answer=="paper":
+                await ctx.send(f"You win!I picked {computers_answer} and you picked {answer}")
+        if computers_answer=="paper":
+            if answer=="rock":
+                await ctx.send(f"You lost!I picked {computers_answer} and you picked {answer}")
+        if computers_answer=="scissors":
+            if answer=="paper":
+                await ctx.send(f"You lost!I picked {computers_answer} and you picked {answer}")
+        if computers_answer=="paper":
+            if answer=="scissors":
+                await ctx.send(f"You win!I picked {computers_answer} and you picked {answer}")
+        if computers_answer=="scissors":
+            if answer=="rock":
+                await ctx.send(f"You win!I picked {computers_answer} and you picked {answer}")
+        if computers_answer=="rock":
+            if answer=="scsissors":
+                await ctx.send(f"You lost!I picked {computers_answer} and you picked {answer}")
+
+player1 = ""
+player2 = ""
+turn = ""
+gameOver = True
+
+board = []
+
+winningConditions = [
+    [0, 1, 2],
+    [3, 4, 5],
+    [6, 7, 8],
+    [0, 3, 6],
+    [1, 4, 7],
+    [2, 5, 8],
+    [0, 4, 8],
+    [2, 4, 6]
+]
+
+@bot.command()
+async def tictactoe(ctx, p1: discord.Member, p2: discord.Member):
+    global count
+    global player1
+    global player2
+    global turn
+    global gameOver
+
+    if gameOver:
+        global board
+        board = [":white_large_square:", ":white_large_square:", ":white_large_square:",
+                 ":white_large_square:", ":white_large_square:", ":white_large_square:",
+                 ":white_large_square:", ":white_large_square:", ":white_large_square:"]
+        turn = ""
+        gameOver = False
+        count = 0
+
+        player1 = p1
+        player2 = p2
+
+        # print the board
+        line = ""
+        for x in range(len(board)):
+            if x == 2 or x == 5 or x == 8:
+                line += " " + board[x]
+                await ctx.send(line)
+                line = ""
+            else:
+                line += " " + board[x]
+
+        # determine who goes first
+        num = random.randint(1, 2)
+        if num == 1:
+            turn = player1
+            await ctx.send("It is <@" + str(player1.id) + ">'s turn.")
+        elif num == 2:
+            turn = player2
+            await ctx.send("It is <@" + str(player2.id) + ">'s turn.")
+    else:
+        await ctx.send("A game is already in progress! Finish it before starting a new one.")
+
+@bot.command()
+async def place(ctx, pos: int):
+    global turn
+    global player1
+    global player2
+    global board
+    global count
+    global gameOver
+
+    if not gameOver:
+        mark = ""
+        if turn == ctx.author:
+            if turn == player1:
+                mark = ":regional_indicator_x:"
+            elif turn == player2:
+                mark = ":o2:"
+            if 0 < pos < 10 and board[pos - 1] == ":white_large_square:" :
+                board[pos - 1] = mark
+                count += 1
+
+                # print the board
+                line = ""
+                for x in range(len(board)):
+                    if x == 2 or x == 5 or x == 8:
+                        line += " " + board[x]
+                        await ctx.send(line)
+                        line = ""
+                    else:
+                        line += " " + board[x]
+
+                checkWinner(winningConditions, mark)
+                print(count)
+                if gameOver == True:
+                    await ctx.send(mark + " wins!")
+                elif count >= 9:
+                    gameOver = True
+                    await ctx.send("It's a tie!")
+
+                # switch turns
+                if turn == player1:
+                    turn = player2
+                elif turn == player2:
+                    turn = player1
+            else:
+                await ctx.send("Be sure to choose an integer between 1 and 9 (inclusive) and an unmarked tile.")
+        else:
+            await ctx.send("It is not your turn.")
+    else:
+        await ctx.send("Please start a new game using the !tictactoe command.")
+
+
+def checkWinner(winningConditions, mark):
+    global gameOver
+    for condition in winningConditions:
+        if board[condition[0]] == mark and board[condition[1]] == mark and board[condition[2]] == mark:
+            gameOver = True
+
+@tictactoe.error
+async def tictactoe_error(ctx, error):
+    print(error)
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("Please mention 2 players for this command.")
+    elif isinstance(error, commands.BadArgument):
+        await ctx.send("Please make sure to mention/ping players (ie. <@688534433879556134>).")
+
+@place.error
+async def place_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("Please enter a position you would like to mark.")
+    elif isinstance(error, commands.BadArgument):
+        await ctx.send("Please make sure to enter an integer.")
+
+@bot.command()
+async def server(ctx):
+    name = str(ctx.guild.name)
+    description = str(ctx.guild.description)
+
+    owner = str(ctx.guild.owner)
+    id = str(ctx.guild.id)
+    region = str(ctx.guild.region)
+    memberCount = str(ctx.guild.member_count)
+
+    icon = str(ctx.guild.icon_url)
+
+    embed = discord.Embed(
+        title=name + "'s Server Information",
+        description="This is a wonderful dank server with a lot of gaws and heists. Consider joining",
+        color=discord.Color.blue()
+    )
+    embed.set_thumbnail(url=icon)
+    embed.add_field(name="Owner", value=owner, inline=True)
+    embed.add_field(name="Server ID", value=id, inline=False)
+    embed.add_field(name="Region", value=region.upper(), inline=False)
+    embed.add_field(name="Member Count", value=memberCount, inline=False)
+
+    await ctx.send(embed=embed)
 
 bot.run("ODc0NTk4MDY0NTU4NjAwMjMy.YRJS6w.JbCKl65Znti-mB0GsX3UAFtnGo4")

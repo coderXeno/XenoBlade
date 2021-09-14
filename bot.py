@@ -20,7 +20,7 @@ from discord_components import *
 import asyncpraw
 import praw
 from praw.reddit import Submission
-import requests
+import requests 
 import giphy_client
 import resp
 import youtube_dl

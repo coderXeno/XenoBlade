@@ -1,5 +1,12 @@
+from asyncio.tasks import wait_for
+from aiohttp.client import ClientSession, request
+from aiohttp.typedefs import LooseCookiesIterables
+
 import discord
+
 from discord import channel
+from discord import embeds
+from discord.embeds import Embed, EmptyEmbed
 from discord.ext import commands,tasks
 from discord.ext.commands import Bot
 from discord.ext.commands.core import command
@@ -8,8 +15,16 @@ from discord.gateway import DiscordClientWebSocketResponse
 from discord.guild import Guild
 from discord.utils import get
 from itertools import count
+from discord_components import *
 
+import asyncpraw
+import praw
+from praw.reddit import Submission
+import requests
+import giphy_client
+import resp
 import youtube_dl
+import aiohttp
 import json
 import random
 import re
@@ -21,7 +36,8 @@ import asyncio
 import datetime
 import traceback
 
-from datetime import datetime
+from giphy_client.rest import ApiException
+from datetime import date, datetime, timedelta
 from discord.flags import Intents
 
 intents=discord.Intents.default()
@@ -36,6 +52,7 @@ bot.remove_command("help")
 @bot.event
 async def on_ready():
     await bot.change_presence(status=discord.Status.online,activity=discord.Game(name=" x!help"))
+    DiscordComponents(bot)
 
     print(f"Logged in as {bot.user.name}")
     print(bot.user.id)
@@ -55,21 +72,24 @@ async def ping(ctx):
 async def help(ctx):
     helpEmbed=discord.Embed(title="Xenobot is here to help!",description="Use x!help <command> to see more info on a command",color=discord.Colour.green())
     helpEmbed.add_field(name="x!",value="x! is the prefix for Xenobot!!Run any command with x!<command> to get the command working..Have fun!!")
-    helpEmbed.add_field(name="ping",value="Checks your ping")
-    helpEmbed.add_field(name="server",value="Shows a description of the server")
-    helpEmbed.add_field(name="description",value="Displays info on Xeno")
-    helpEmbed.add_field(name="avatar",value="Displays the specified user's avatar")
-    helpEmbed.add_field(name="purge",value="Purges specified number of messages")
-    helpEmbed.add_field(name="kick",value="Kicks a member and sends to their dms the reason they were kicked")
-    helpEmbed.add_field(name="ban",value="bans a member and sends to their dms the reason they were banned")
-    helpEmbed.add_field(name="unban",value="unbans a member and sends to their dms that they were unbanned")
-    helpEmbed.add_field(name=".",value="The Bot will now catch and delete messages that contain blacklisted words, by users in the server and send them a warning")
-    helpEmbed.add_field(name="roles",value="Puts up the roles message")
-    helpEmbed.add_field(name="mute",value="Mutes the member for a specific reason")
-    helpEmbed.add_field(name="unmute",value="Unmutes the member that was previously muted")
-    helpEmbed.add_field(name="rps",value="Plays rock paper scissors with the player that invokes the command")
-    helpEmbed.add_field(name="server",value="Plays rock paper scissors with the player that invokes the command")
-    helpEmbed.set_footer(text="Built by Eth")
+    helpEmbed.add_field(name="ping",value="Checks your ping",inline=False)
+    helpEmbed.add_field(name="server",value="Shows a description of the server",inline=False)
+    helpEmbed.add_field(name="description",value="Displays info on Xeno",inline=False)
+    helpEmbed.add_field(name="avatar",value="Displays the specified user's avatar",inline=False)
+    helpEmbed.add_field(name="purge",value="Purges specified number of messages",inline=False)
+    helpEmbed.add_field(name="kick",value="Kicks a member and sends to their dms the reason they were kicked",inline=False)
+    helpEmbed.add_field(name="ban",value="bans a member and sends to their dms the reason they were banned",inline=False)
+    helpEmbed.add_field(name="unban",value="unbans a member and sends to their dms that they were unbanned",inline=False)
+    helpEmbed.add_field(name="roles",value="Puts up the roles message",inline=False)
+    helpEmbed.add_field(name="mute",value="Mutes the member for a specific reason",inline=False)
+    helpEmbed.add_field(name="unmute",value="Unmutes the member that was previously muted",inline=False)
+    helpEmbed.add_field(name="rps",value="Plays rock paper scissors with the player that invokes the command",inline=False)
+    helpEmbed.add_field(name="server",value="Plays rock paper scissors with the player that invokes the command",inline=False)
+    helpEmbed.add_field(name="emojify",value="Emojifies what the user writes in text after invoking the command",inline=False)
+    helpEmbed.add_field(name="tictactoe",value="Plays tictactoe with two human players",inline=False)
+    helpEmbed.add_field(name="gif",value="Displays a gif according to user command",inline=False)
+    helpEmbed.add_field(name="userinfo",value="Displays the info of the requested user",inline=False)
+    helpEmbed.set_footer(text="The Bot will now catch and delete messages that contain blacklisted words, by users in the server and send them a warning.\nBuilt by Eth")
     await ctx.send(embed=helpEmbed)
 
 @help.command()
@@ -78,13 +98,40 @@ async def server(ctx):
     srverEmbed.add_field(name="**SYNTAX**",description="x!server")
     await ctx.send(embed=srverEmbed)
 
+@help.command()
+async def emojify(ctx):
+    emfEmbed=discord.Embed(title="Emojify", description="Emojifies the text the user wrote after invoking the command")
+    emfEmbed.add_field(name="**SYNTAX**",description="x!emojify")
+    emfEmbed.add_field(name="Aliases",description="emf,emj")
+    await ctx.send(embed=emfEmbed)
+
+@help.command()
+async def tictactoe(ctx):
+    tttEmbed=discord.Embed(title="TicTacToe", description="Plays a game of tictactoe with two human players")
+    tttEmbed.add_field(name="**SYNTAX**",description="x!tictactoe")
+    tttEmbed.add_field(name="Aliases",description="tt,tct")
+    tttEmbed.set_footer(text="The x!place <position> command is used to place your symbol after you invoke the tictactoe command with yourself and another player")
+    await ctx.send(embed=tttEmbed)
+
+@help.command()
+async def gif(ctx):
+    gfEmbed=discord.Embed(title="Gif", description="Displays a gif according to the user's input word")
+    gfEmbed.add_field(name="**SYNTAX**",description="x!gif <word>")
+    await ctx.send(embed=gfEmbed)
 
 @help.command()
 async def rps(ctx):
     rpsEmbed=discord.Embed(title="Rock Paper Scissors",description="Plays rock paper scissors with the player")
     rpsEmbed.add_field(name="**SYNTAX**",value="x!rps")
-    rpsEmbed.add_field(name="This command has aliases x!rg and x!rs")
+    rpsEmbed.add_field(name="Aliases",description="rg,rs")
     await ctx.send(embed=rpsEmbed)
+
+@help.command()
+async def userinfo(ctx):
+    usfEmbed=discord.Embed(title="Userinfo", description="Displays the userinfo of the requested user")
+    usfEmbed.add_field(name="**SYNTAX**",description="x!userinfo <@user>")
+    usfEmbed.add_field(name="Aliases",description="ui,info,user,uinfo,uf")
+    await ctx.send(embed=usfEmbed)
 
 @help.command()
 async def ping(ctx):
@@ -202,6 +249,23 @@ async def avatar(ctx,*,member: discord.Member=None):
     avEmbed.set_footer(text=f"Command run by {ctx.author}",icon_url=ctx.author.avatar_url)
     await ctx.send(embed=avEmbed)
 
+#Another easter egg inspired from dank memer
+@bot.command(aliases=["emj","emf"])
+async def emojify(ctx,*,message):
+    emojis=[]
+    for letters in message.lower():
+        if letters.isdecimal():
+            nemo={'0':'zero','1':'one','2':'two','3':'three','4':'four','5':'five','6':'six','7':'seven','8':'eight','9':'nine'}
+
+            emojis.append(f':{nemo.get(letters)}:')
+
+        elif letters.isalpha():
+            emojis.append(f':regional_indicator_{letters}:')
+        
+        else:
+            emojis.append(letters)
+    await ctx.send(''.join(emojis))
+
 @bot.command(aliases=["pg","p","del"])
 @commands.has_permissions(manage_messages=True)
 async def purge(ctx,amount=35):
@@ -313,7 +377,7 @@ async def on_raw_reaction_remove(payload):
         else:
             print("Member not found")
 
-@bot.command(aliases=["ui","info","user","uinfo"])
+@bot.command(aliases=["ui","info","user","uinfo","uf"])
 async def userinfo(ctx,member: discord.Member):
 
     auEmbed=discord.Embed(title="USER INFO", description=f"This is the userinfo of the requested user",color=member.color,timestamp=ctx.message.created_at)
@@ -398,7 +462,7 @@ winningConditions = [
     [2, 4, 6]
 ]
 
-@bot.command()
+@bot.command(aliases=["ttt,tct"])
 async def tictactoe(ctx, p1: discord.Member, p2: discord.Member):
     global count
     global player1
@@ -535,5 +599,59 @@ async def server(ctx):
     embed.add_field(name="Member Count", value=memberCount, inline=False)
 
     await ctx.send(embed=embed)
+
+expressions=["Smile","Happy","Joy","Excited","Ecstatic","Tired","Bored","Embarassed","LOL"]
+
+@bot.command()
+async def gif(ctx,*,q=random.choice(expressions)):
+    api_key="1AFX0EbsdKffvmC0vaBDrAU9QdpDkY97"
+    api_instance=giphy_client.DefaultApi()
+
+    try:     
+        api_response = api_instance.gifs_search_get(api_key, q, limit=5, rating='g')
+        lst = list(api_response.data)
+        gif = random.choice(lst)
+
+        gifEmbed = discord.Embed(title=q)
+        gifEmbed.set_image(url = f'https://media.giphy.com/media/{gif.id}/giphy.gif')
+
+        await ctx.channel.send(embed=gifEmbed)
+
+    except ApiException as e:
+        print("Exception when calling DefaultApi->gifs_search_get: %s\n" % e)
+
+@bot.command(aliases=["rm,rn"])
+async def reminder(self,ctx,*,task):
+    def convert(time):
+        pos=['s','m','h','d']
+
+        time_dict={"s":1,"m":60,"h":3600,"d":3600*24}
+
+        unit=time[-1]
+
+        if unit not in pos:
+            return -1
+        try:
+            val=int(time[:-1])
+        except:
+            return -2
+
+        return val*time_dict[unit]
+
+    converted_time=convert(time)
+
+    if converted_time==-1:
+        await ctx.send("You didnt answer the time correctly")
+        return
+
+    if converted_time==-2:
+        await ctx.send("The time must be an integer")
+        return
+
+    await ctx.send(f"Started reminder for **{task}** and will last **{time}**")
+
+    await asyncio.sleep(converted_time)
+    await ctx.send(f"{ctx.author.mention} your timed reminder for {task} has ended!!")
+
 
 bot.run("ODc0NTk4MDY0NTU4NjAwMjMy.YRJS6w.JbCKl65Znti-mB0GsX3UAFtnGo4")

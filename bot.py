@@ -66,7 +66,7 @@ async def on_member_join(ctx,member):
 
 @bot.command(name='ping')
 async def ping(ctx):
-    await ctx.message.channel.send(f"Yo!!The ping is {round(bot.latency*100)}ms")
+    await ctx.message.channel.send(f"Yo!!The ping is {round(bot.latency*1000)}ms")
 
 @bot.group(invoke_without_command=True)
 async def help(ctx):

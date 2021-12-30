@@ -654,4 +654,4 @@ async def reminder(self,ctx,*,task):
     await ctx.send(f"{ctx.author.mention} your timed reminder for {task} has ended!!")
 
 
-bot.run("ODc0NTk4MDY0NTU4NjAwMjMy.YRJS6w.JbCKl65Znti-mB0GsX3UAFtnGo4")
+bot.run("Bot token here")
